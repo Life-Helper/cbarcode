@@ -1,5 +1,7 @@
 package com.Cbarcode;
 
+// https://github.com/Life-Helper/cbarcode/releases/latest
+
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
@@ -8,6 +10,9 @@ import com.google.zxing.oned.Code128Writer;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+
+import org.json.JSONObject;
+
 import java.awt.*;
 // import java.awt.event.ActionEvent;
 // import java.awt.event.ActionListener;
@@ -15,9 +20,15 @@ import java.awt.image.BufferedImage;
 import java.awt.print.Printable;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 // import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class Main {
     public static void main(String[] args) {
@@ -48,6 +59,10 @@ public class Main {
         // "도움말" 메뉴에 항목 추가
         JMenuItem aboutItem = new JMenuItem("정보");
         helpMenu.add(aboutItem);
+
+        // "업데이트 확인..." 메뉴 항목 추가 및 동작 정의
+        JMenuItem checkUpdateItem = new JMenuItem("업데이트 확인...");
+        helpMenu.add(checkUpdateItem);
 
         // 메뉴바에 메뉴 추가
         menuBar.add(fileMenu);
@@ -107,6 +122,7 @@ public class Main {
 
         frame.add(panel);
         frame.setVisible(true);
+        
 
         // "종료" 메뉴 항목 클릭 시 동작 정의
         exitItem.addActionListener(e -> System.exit(0));
@@ -121,6 +137,7 @@ public class Main {
                         "        버전: v1.0\n" + //
                         "        소속: CHA1 Sub-FC_C HL\n" + //
                         "        만든이: Shan"));
+
 
         // Button actions
         saveButton.addActionListener(e -> {
@@ -224,6 +241,38 @@ public class Main {
             }
         });
 
+        // 설치된 현재 버전
+        String installedVersion = "v1.2";
+
+        // "업데이트 확인..." 클릭 시 동작
+        checkUpdateItem.addActionListener(e -> {
+            String apiUrl = "https://api.github.com/repos/Life-Helper/cbarcode/releases/latest";
+            
+            try {
+                // GitHub API 호출
+                String latestVersion = getLatestVersionFromGitHub(apiUrl);
+                
+                if (latestVersion.equals(installedVersion)) {
+                    // 최신 버전과 동일
+                    JOptionPane.showMessageDialog(frame, "현재 사용 할 수 있는 최신버전이 없습니다.", "업데이트 확인", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    // 새로운 버전이 존재
+                    int response = JOptionPane.showConfirmDialog(frame, 
+                        "최신 버전(" + latestVersion + ")이 존재합니다. 업데이트 하시겠습니까?", 
+                        "업데이트 확인", 
+                        JOptionPane.YES_NO_OPTION, 
+                        JOptionPane.QUESTION_MESSAGE);
+                    
+                    if (response == JOptionPane.YES_OPTION) {
+                        // 업데이트 다운로드 및 실행
+                        downloadAndUpdate(latestVersion);
+                    }
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(frame, "업데이트 확인 중 오류가 발생했습니다: " + ex.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
         frame.setVisible(true);
     }
 
@@ -276,4 +325,54 @@ public class Main {
 
         return combinedImage; // 바코드 이미지 아래에 텍스트가 포함된 이미지 반환
     }
+
+    // GitHub API 호출하여 최신 버전 가져오기
+private static String getLatestVersionFromGitHub(String apiUrl) throws IOException {
+    // API 호출
+    URL url = new URL(apiUrl);
+    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+    connection.setRequestMethod("GET");
+    connection.setRequestProperty("Accept", "application/json");
+    
+    // 응답 읽기
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            response.append(line);
+        }
+        
+        // JSON 응답에서 최신 버전 추출
+        JSONObject jsonResponse = new JSONObject(response.toString());
+        return jsonResponse.getString("tag_name"); // 릴리스의 "tag_name"을 버전으로 가정
+    }
+}
+
+// 업데이트 다운로드 및 실행
+private static void downloadAndUpdate(String latestVersion) {
+    try {
+        // 다운로드 링크 설정 (예: GitHub 릴리스 실행 파일 URL)
+        String downloadUrl = "https://github.com/{username}/{repository}/releases/download/" + latestVersion + "/CBarcodeSetup.exe";
+        String savePath = System.getProperty("user.home") + "\\Downloads\\CBarcodeSetup.exe";
+
+        // 파일 다운로드
+        try (BufferedInputStream in = new BufferedInputStream(new URL(downloadUrl).openStream());
+             FileOutputStream fileOutputStream = new FileOutputStream(savePath)) {
+            byte[] dataBuffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
+                fileOutputStream.write(dataBuffer, 0, bytesRead);
+            }
+        }
+
+        // 다운로드 완료 메시지
+        JOptionPane.showMessageDialog(null, "업데이트 파일이 다운로드되었습니다:\n" + savePath, "업데이트 완료", JOptionPane.INFORMATION_MESSAGE);
+
+        // 업데이트 실행
+        Runtime.getRuntime().exec(savePath);
+
+    } catch (IOException ex) {
+        JOptionPane.showMessageDialog(null, "업데이트 다운로드 중 오류가 발생했습니다: " + ex.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+    }
+}
 }
