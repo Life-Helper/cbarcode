@@ -1,0 +1,7 @@
+com\Cbarcode\BarcodePrinter.class
+com\Cbarcode\SettingsManager.class
+com\Cbarcode\BarcodeGenerator.class
+com\Cbarcode\Main.class
+com\Cbarcode\UpdateChecker.class
+com\Cbarcode\MainPanel.class
+com\Cbarcode\SettingsDialog.class
